@@ -76,7 +76,7 @@ function theme(){const s=document.documentElement.style,c=C();['ac','bg','fg'].f
 /* notify */
 const NP=()=>'Notification' in window?Notification.permission:'unsupported';
 async function showN(b){const o={body:b,tag:'hitoiki',renotify:true,icon:'icon-192.png'};let err;try{const g=navigator.serviceWorker&&navigator.serviceWorker.getRegistration?await navigator.serviceWorker.getRegistration():null;if(g&&g.showNotification){await g.showNotification('ひといき',o);return true}}catch(x){err=x}try{new Notification('ひといき',o);return true}catch(x){return err||x}}
-async function testN(){const rs=await showN('テスト通知です。これが見えていれば、通知の設定は正常です。');if(rs!==true)alertM('通知を表示できませんでした',esc(String(rs&&rs.message||rs)))}
+async function testN(){const rs=await showN('テスト通知です。これが見えていれば、通知の設定は正常です。');if(rs!==true)alertM('通知を表示できませんでした',esc(String(rs&&rs.message||rs)));else alertM('通知の送信を依頼しました','ブラウザは受け付けました。画面に通知が出ない場合は、OSやブラウザの通知設定（集中モードなど）を確認してください。')}
 function notify(b){if(!C().notif||NP()!=='granted')return;if(document.visibilityState==='visible'&&document.hasFocus())return;showN(b)}
 async function notifTog(el){if(!el.checked){tg('notif',false);$('#tbtn').hidden=true;return}if(NP()==='unsupported'){el.checked=false;alertM('この環境では通知を使えません','ブラウザが通知に対応していないか、対応していない画面で開いています。');return}if(NP()==='default'){try{await Notification.requestPermission()}catch(e){}}const p=NP();
 if(p==='granted'){tg('notif',true);$('#tbtn').hidden=false;const rs=await showN('通知をオンにしました。節目になると、ここに届きます。');if(rs!==true)alertM('通知を表示できませんでした',esc(String(rs&&rs.message||rs)))}else{el.checked=false;tg('notif',false);alertM('通知が許可されていません','ブラウザやOSの設定で、このサイトの通知を許可してください。')}}
