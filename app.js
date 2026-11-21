@@ -8,7 +8,7 @@ let R,M=null,P=null,A=false,AT='t',FS=false,lastMode='',mode='p',cal=new Date(),
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+f2(d.getMonth()+1)+'-'+f2(d.getDate())};
 const fmt=s=>{s=Math.max(0,Math.floor(s));const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return(h?h+':'+f2(m):f2(m))+':'+f2(s%60)};
 const dur=s=>{s=Math.round(s);return Math.floor(s/60)+'分'+s%60+'秒'};
-function reset(){R={run:false,last:0,ph:'f',rem:C().focus*60,cyc:1,cdone:0,el:0,total:0,study:0,reached:false}}
+function reset(){R={run:false,started:false,last:0,ph:'f',rem:C().focus*60,cyc:1,cdone:0,el:0,total:0,study:0,reached:false}}
 reset();selDay=today();
 /* sound */
 let ctx;const AC=()=>ctx||(ctx=new(window.AudioContext||window.webkitAudioContext)());
@@ -37,11 +37,11 @@ if(R.ph==='f'){R.cdone++;R.ph='r';R.rem=C().rest*60+carry;msg='集中が終わ�
 notify(msg);if(!hf){R.run=false;alertM(msg,'',()=>{R.run=true;R.last=Date.now()},'進む')}else render()}
 setInterval(tick,250);try{const w=new Worker(URL.createObjectURL(new Blob(['setInterval(()=>postMessage(0),1000)'])));w.onmessage=tick}catch(e){}document.addEventListener('visibilitychange',tick);
 /* actions */
-function toggle(){if(mode==='g'&&!cur()){A=true;render();return}R.run=!R.run;R.last=Date.now();sfx(R.run?'start':'tap');render()}
+function toggle(){if(mode==='g'&&!cur()){A=true;render();return}R.run=!R.run;R.last=Date.now();sfx(R.run?'start':'tap');if(R.run)R.started=true;render()}
 function discard(){D.tasks.forEach(t=>{t.sec=0;t.done=false});reset()}
-function rst(){if(R.total<1)return;confirmM('最初からやり直しますか？','進捗がリセットされます。',()=>{discard();render()},'やり直す')}
+function rst(){if(!R.started)return;confirmM('最初からやり直しますか？','進捗がリセットされます。',()=>{discard();render()},'やり直す')}
 function setMode(m){if(m===mode)return;const go=()=>{mode=m;discard();render()};if(R.run||R.total>0)confirmM('モードを切り替えますか？','タイマーがリセットされ、これまでの進捗は失われます。',go,'切り替える');else{sfx('tap');go()}}
-function finish(){R.run=false;sfx('goal');const rows=[['合計学習時間',dur(R.study)]];
+function finish(){if(!R.started)return;R.run=false;sfx('goal');const rows=[['合計学習時間',dur(R.study)]];
 if(mode==='p')rows.push(['サイクル数',R.cdone+'回']);
 if(mode==='c')rows.push(['ゴールからの経過時間',dur(Math.max(0,R.el-C().goal*60))]);
 if(mode==='g'){const dn=D.tasks.filter(t=>t.done);rows.push(['完了した課題',dn.length+'件']);dn.forEach(t=>rows.push(['　'+esc(t.n+(t.s?' '+t.s:'')),dur(t.sec)]))}
@@ -75,10 +75,11 @@ function wipe(){confirmM('すべてのデータを消去しますか？','課題
 function theme(){const s=document.documentElement.style,c=C();['ac','bg','fg'].forEach(k=>s.setProperty('--'+k,c[k]));s.setProperty('--ff',c.ff==='u'?'"hfont",'+FONTS.g:FONTS[c.ff])}
 /* notify */
 const NP=()=>'Notification' in window?Notification.permission:'unsupported';
-function showN(b){const o={body:b,tag:'hitoiki',renotify:true,icon:'icon-192.png'},fb=()=>{try{new Notification('ひといき',o)}catch(e){}};try{const g=navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve();g.then(r=>r&&r.showNotification?r.showNotification('ひといき',o):fb()).catch(fb)}catch(e){fb()}}
+async function showN(b){const o={body:b,tag:'hitoiki',renotify:true,icon:'icon-192.png'};let err;try{const g=navigator.serviceWorker&&navigator.serviceWorker.getRegistration?await navigator.serviceWorker.getRegistration():null;if(g&&g.showNotification){await g.showNotification('ひといき',o);return true}}catch(x){err=x}try{new Notification('ひといき',o);return true}catch(x){return err||x}}
+async function testN(){const rs=await showN('テスト通知です。これが見えていれば、通知の設定は正常です。');if(rs!==true)alertM('通知を表示できませんでした',esc(String(rs&&rs.message||rs)))}
 function notify(b){if(!C().notif||NP()!=='granted')return;if(document.visibilityState==='visible'&&document.hasFocus())return;showN(b)}
-async function notifTog(el){if(!el.checked){tg('notif',false);return}if(NP()==='unsupported'){el.checked=false;alertM('この環境では通知を使えません','ブラウザが通知に対応していないか、対応していない画面で開いています。');return}if(NP()==='default'){try{await Notification.requestPermission()}catch(e){}}const p=NP();
-if(p==='granted'){tg('notif',true);showN('通知をオンにしました。節目になると、ここに届きます。')}else{el.checked=false;tg('notif',false);alertM('通知が許可されていません','ブラウザやOSの設定で、このサイトの通知を許可してください。')}}
+async function notifTog(el){if(!el.checked){tg('notif',false);$('#tbtn').hidden=true;return}if(NP()==='unsupported'){el.checked=false;alertM('この環境では通知を使えません','ブラウザが通知に対応していないか、対応していない画面で開いています。');return}if(NP()==='default'){try{await Notification.requestPermission()}catch(e){}}const p=NP();
+if(p==='granted'){tg('notif',true);$('#tbtn').hidden=false;const rs=await showN('通知をオンにしました。節目になると、ここに届きます。');if(rs!==true)alertM('通知を表示できませんでした',esc(String(rs&&rs.message||rs)))}else{el.checked=false;tg('notif',false);alertM('通知が許可されていません','ブラウザやOSの設定で、このサイトの通知を許可してください。')}}
 /* modal */
 function alertM(t,b,fn,ok){M={t,b:b||'',btns:[[ok||'OK',fn,1]]};render()}
 function confirmM(t,b,yes,l){sfx('confirm');M={t,b,btns:[['キャンセル'],[l||'はい',yes,1]]};render()}
@@ -96,7 +97,7 @@ const sw=(on,fn)=>'<label class="sw"><input type="checkbox" '+(on?'checked':'')+
 const num=(k,l)=>'<label class="f">'+l+'<input type="number" min="1" step="1" value="'+C()[k]+'" onchange="setN(\''+k+'\',this.value)"></label>';
 const pre=(arr,fn,on)=>'<div class="pre">'+arr.map(a=>'<button class="'+(on(a)?'on':'')+'" onclick="'+fn(a)+'">'+a[2]+'</button>').join('')+'</div>';
 const head=(e,d)=>'<div class="mh"><div><small>'+e+'</small><p>'+d+'</p></div><button class="ib" title="全画面表示" onclick="fsT()">'+ic(FS?'min':'max')+'</button></div>';
-const ctl=x=>'<div class="ctl"><button class="ib" title="やり直す" data-ns onclick="rst()">'+ic('reset')+'</button><button class="go" data-ns onclick="toggle()">'+ic(R.run?'pause':'play')+(R.run?'一時停止':'はじめる')+'</button><button class="fin" data-ns onclick="finish()">'+ic('square',16)+'終了</button>'+(x||'')+'</div>';
+const ctl=x=>'<div class="ctl"><button class="ib" title="やり直す" data-ns onclick="rst()"'+(R.started?'':' disabled')+'>'+ic('reset')+'</button><button class="go" data-ns onclick="toggle()">'+ic(R.run?'pause':'play')+(R.run?'一時停止':'はじめる')+'</button><button class="fin" data-ns onclick="finish()"'+(R.started?'':' disabled')+'>'+ic('square',16)+'終了</button>'+(x||'')+'</div>';
 function timerCard(){const p=mode==='p',c=C();const lab=p?(R.ph==='f'?'集中時間':'休憩時間'):'時間を積み重ねる',sub=p?(R.ph==='f'?c.focus:c.rest)+'分の'+(R.ph==='f'?'集中':'休憩'):'目標 '+c.goal+'分';
 return'<section class="card'+(FS?' fs':'')+'">'+head(p?'FOCUS & REST':'ONE MORE MINUTE',p?'集中と休憩に、心地よいリズムを。':'積み重ねた時間が、自信になる。')+'<div class="lab"><i class="dot"></i>'+lab+'</div><div class="ringw'+(R.run?' run':'')+'"><svg viewBox="0 0 200 200"><circle class="bg" cx="100" cy="100" r="90"/><circle id="ring" class="fg" cx="100" cy="100" r="90" stroke-dasharray="'+RC+'" transform="rotate(-90 100 100)"/></svg><div class="ct"><b id="big"></b><span>'+sub+'</span><em id="over"></em></div></div>'+ctl()+'<div class="stats"><div><small>'+st1()[0]+'</small><b id="st1"></b></div><div><small>開始からの稼働時間<br>（一時停止を除く）</small><b id="tot"></b></div></div></section>'}
 function goalCard(){const t=cur(),n=D.tasks.length,dn=D.tasks.filter(x=>x.done).length;let body;
@@ -111,7 +112,7 @@ if(mode==='p')h+='<div class="two">'+num('focus','集中時間（分）')+num('r
 else h+=num('goal','目標時間（分）')+pre([[15,0,'15分'],[30,0,'30分'],[60,0,'60分']],a=>'setN(\'goal\','+a[0]+')',a=>c.goal===a[0]);
 return h+'<div class="sr"><span>'+ic('head',20)+'<span style="display:block">ハンズフリー<small>確認なしで、次へ進む</small></span></span>'+sw(c.hands,'tg(\'hands\',this.checked)')+'</div></div>'}
 function sound(){const c=C();return(mode!=='g'?'<div class="note">'+ic('cup',22)+'<h3 style="margin-top:8px">休むことも、勉強のうち。</h3><p>区切りが来たら、肩の力を抜いて。次の集中のために、ひといき。</p></div>':'')
-+'<div class="card"><div class="sr"><span>'+ic('vol',20)+'<span style="display:block">区切りの効果音<small>終わりを、やさしい音で</small></span></span>'+sw(c.sfx,'tg(\'sfx\',this.checked)')+'</div><div class="sr"><span>'+ic('bell',20)+'<span style="display:block">通知<small>画面を離れている間、節目で知らせる</small></span></span><label class="sw"><input type="checkbox" '+(c.notif?'checked':'')+' onchange="notifTog(this)"><i></i></label></div>'+(c.notif&&NP()!=='granted'?'<p class="mut" style="margin:0 0 8px;color:var(--dg)">ブラウザ側で通知が許可されていません。ブラウザの設定で、このサイトの通知を許可してください。</p>':'')+'<p class="mut" style="margin:0 0 8px">iPhoneは、ホーム画面に追加したアプリから開いた場合のみ使えます。アプリを閉じている間は届かない場合があります。</p><div class="sr"><span>'+ic('head',20)+'環境音・BGM</span>'+sw(ambOn,'ambTog()')+'</div><select id="ambsel" class="f" style="width:100%;padding:12px;border:1px solid var(--ln);border-radius:12px;background:var(--bg)" '+(ambOn?'':'hidden')+' onchange="ambSet(this.value)">'+Object.entries(AMB).map(([k,v])=>'<option value="'+k+'" '+(k===ambK?'selected':'')+'>'+v+'</option>').join('')+'</select><div class="sr"><input id="yu" placeholder="YouTubeのリンクでBGMを聴く" style="flex:1;min-width:0;padding:11px;border:1px solid var(--ln);border-radius:12px;background:var(--bg);outline:0"><button class="sub" onclick="yt()">'+ic('music',16)+'再生</button></div></div>'}
++'<div class="card"><div class="sr"><span>'+ic('vol',20)+'<span style="display:block">区切りの効果音<small>終わりを、やさしい音で</small></span></span>'+sw(c.sfx,'tg(\'sfx\',this.checked)')+'</div><div class="sr"><span>'+ic('bell',20)+'<span style="display:block">通知<small>画面を離れている間、節目で知らせる</small></span></span><label class="sw"><input type="checkbox" '+(c.notif?'checked':'')+' onchange="notifTog(this)"><i></i></label></div>'+(c.notif&&NP()!=='granted'?'<p class="mut" style="margin:0 0 8px;color:var(--dg)">ブラウザ側で通知が許可されていません。ブラウザの設定で、このサイトの通知を許可してください。</p>':'')+'<button id="tbtn" class="sub" style="margin:0 0 12px" onclick="testN()" '+(c.notif?'':'hidden')+'>'+ic('bell',16)+'テスト通知を送る</button>'+'<p class="mut" style="margin:0 0 8px">iPhoneは、ホーム画面に追加したアプリから開いた場合のみ使えます。アプリを閉じている間は届かない場合があります。</p><div class="sr"><span>'+ic('head',20)+'環境音・BGM</span>'+sw(ambOn,'ambTog()')+'</div><select id="ambsel" class="f" style="width:100%;padding:12px;border:1px solid var(--ln);border-radius:12px;background:var(--bg)" '+(ambOn?'':'hidden')+' onchange="ambSet(this.value)">'+Object.entries(AMB).map(([k,v])=>'<option value="'+k+'" '+(k===ambK?'selected':'')+'>'+v+'</option>').join('')+'</select><div class="sr"><input id="yu" placeholder="YouTubeのリンクでBGMを聴く" style="flex:1;min-width:0;padding:11px;border:1px solid var(--ln);border-radius:12px;background:var(--bg);outline:0"><button class="sub" onclick="yt()">'+ic('music',16)+'再生</button></div></div>'}
 function calHTML(){const y=cal.getFullYear(),m=cal.getMonth(),off=(new Date(y,m,1).getDay()+6)%7,days=new Date(y,m+1,0).getDate(),key=d=>d.getFullYear()+'-'+f2(d.getMonth()+1)+'-'+f2(d.getDate());
 let h='<div class="cal-h"><button onclick="calGo(-1)">'+ic('prev')+'</button><b>'+y+'年'+(m+1)+'月</b><button onclick="calGo(1)">'+ic('next')+'</button></div><div class="cal">'+[...'月火水木金土日'].map(x=>'<i>'+x+'</i>').join('');
 for(let i=0;i<off;i++)h+='<span></span>';
