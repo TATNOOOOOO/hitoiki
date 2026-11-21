@@ -2,7 +2,7 @@
 @media(prefers-color-scheme:dark){:root{--bg:#1d1d1a;--fg:#ecebe4;--card:#272723;--mut:#9a9a90;--ln:#3a3a34;--soft:#33332c;--dg:#e5786e}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--ff);font-weight:500;line-height:1.6}
 button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .15s,box-shadow .2s,background .2s,border-color .2s}button:active{transform:scale(.95)}
-.i{flex:none}.wrap{max-width:1120px;margin:auto;padding:20px 20px 32px}
+button:disabled{opacity:.4;cursor:default;box-shadow:none}button:disabled:active{transform:none}[hidden]{display:none!important}.i{flex:none}.wrap{max-width:1120px;margin:auto;padding:20px 20px 32px}
 .top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:4px 0 32px}.brand{display:flex;align-items:center;gap:12px;flex:1 1 auto;min-width:0}.brand img{width:44px;height:44px;border-radius:13px;flex:none}.brand b{display:block;font-size:22px;letter-spacing:.12em;white-space:nowrap}.brand small{display:block;font-size:10px;letter-spacing:.2em;color:var(--mut);white-space:nowrap}
 .tools{display:flex;align-items:center;gap:8px;margin-left:auto}.date{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--mut);white-space:nowrap}
 .ib{border:1px solid var(--ln);background:var(--card);border-radius:12px;width:42px;height:42px;padding:0}.ib:hover{border-color:var(--ac)}
